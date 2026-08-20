@@ -1,126 +1,128 @@
-# Architectural Plan & Technical Specification: Family Cashflow & Education Platform
+# Plán projektu: Rodinná appka na financie a cashflow
 
-## 1. Project Overview
-A web and mobile application for proactive family financial management. Unlike traditional tracker apps, this platform focuses on future cashflow predictions, recurring fixed costs, fixed monthly budgets, and financial literacy for children.
+Tento dokument popisuje víziu appky a plán vývoja po fázach. Je rozdelený na
+**to, čo už je hotové**, a **to, čo je ešte len v pláne**, aby bolo vždy jasné,
+kde sa projekt reálne nachádza.
 
-### Key Features
-* **Recurring & Fixed Expenses:** Tracking monthly subscriptions, loans, and custom monthly allowances (e.g., €600 for groceries).
-* **Irregular Annual Expenses:** Planning calendar for non-monthly fees (car insurance, school supplies, vacations).
-* **Cashflow Predictions:** Short-term (1-2 months) and long-term risk analysis (identifying deficit months).
-* **Family & Multi-user Roles:** Shared budget view between parents with customizable contribution levels.
-* **Gamified Kids Mode:** Age-adaptive interface (6-8 years and 9-15 years) with task-based rewards and real-world goals.
-* **Smart Tips & Deals (Manual/MVP):** Built-in recommendation Engine for cost-saving alternatives on subscriptions/services.
+> Aktuálny stav appky: **funkčné MVP bežiace v prehliadači**, dáta v `localStorage`.
+> Backend, databáza ani prihlásenie zatiaľ **neexistujú** — sú naplánované nižšie.
 
 ---
 
-## 2. Tech Stack Definition
-* **Database & Authentication:** Supabase (PostgreSQL with Row Level Security).
-* **Backend:** Node.js (Next.js API routes / REST API endpoints).
-* **Web Frontend:** Next.js (React), Tailwind CSS, Shadcn UI.
-* **Mobile App (Phase 4):** React Native / Expo (sharing the same REST API).
-* **Deployment:** Vercel (Frontend & API), Supabase Cloud (Database).
+## 1. Vízia
+
+Webová (neskôr aj mobilná) appka na proaktívne riadenie rodinných financií.
+Na rozdiel od bežných „trackerov" sa sústredí na **budúci cashflow**: opakované
+a fixné náklady, mesačné rozpočty, plánované platby a neskôr aj finančnú
+gramotnosť pre deti.
+
+### Hlavné oblasti
+- **Opakované a fixné výdavky** – paušály, splátky, mesačné limity (napr. 600 € na potraviny).
+- **Nepravidelné ročné výdavky** – poistky, školské potreby, dovolenky.
+- **Predikcia cashflow** – krátkodobá (1–2 mesiace) aj dlhodobá (identifikácia deficitných mesiacov).
+- **Rodina a viac používateľov** – zdieľaný rozpočet medzi rodičmi *(plán)*.
+- **Detský režim** – vek-primerané rozhranie s úlohami a odmenami *(plán)*.
+- **Tipy a porovnanie cien** – odporúčania na lacnejšie alternatívy služieb.
 
 ---
 
-## 3. Database Schema (PostgreSQL / Supabase)
+## 2. Aktuálny stav — ČO UŽ FUNGUJE
 
-### `households`
-* `id` (UUID, Primary Key)
-* `name` (TEXT)
-* `created_at` (TIMESTAMP)
+Appka je jednostránková, beží celá v prehliadači (Next.js + React), dáta ukladá
+do `localStorage`. Konkrétne je hotové:
 
-### `users`
-* `id` (UUID, Primary Key, references Supabase Auth)
-* `household_id` (UUID, Foreign Key)
-* `role` (TEXT: 'parent' | 'child')
-* `display_name` (TEXT)
-* `age_group` (TEXT, optional: '6-8' | '9-15' | null)
-* `created_at` (TIMESTAMP)
-
-### `recurring_expenses`
-* `id` (UUID, Primary Key)
-* `household_id` (UUID, Foreign Key)
-* `created_by` (UUID, Foreign Key to users)
-* `title` (TEXT)
-* `amount` (NUMERIC)
-* `frequency` (TEXT: 'monthly' | 'yearly')
-* `category` (TEXT: 'housing' | 'subscription' | 'groceries_allowance' | 'insurance' | 'debt' | 'other')
-* `due_day` (INTEGER, 1-31)
-* `due_month` (INTEGER, optional 1-12 for yearly)
-* `is_active` (BOOLEAN)
-
-### `cashflow_predictions`
-* `id` (UUID, Primary Key)
-* `household_id` (UUID, Foreign Key)
-* `estimated_income` (NUMERIC)
-* `month` (INTEGER, 1-12)
-* `year` (INTEGER)
-
-### `kids_tasks`
-* `id` (UUID, Primary Key)
-* `household_id` (UUID, Foreign Key)
-* `assigned_to` (UUID, Foreign Key to users)
-* `title` (TEXT)
-* `reward_amount` (NUMERIC)
-* `status` (TEXT: 'pending' | 'completed' | 'approved')
-* `created_at` (TIMESTAMP)
-
-### `financial_goals`
-* `id` (UUID, Primary Key)
-* `household_id` (UUID, Foreign Key)
-* `user_id` (UUID, Foreign Key, optional for individual/kid goals)
-* `title` (TEXT)
-* `target_amount` (NUMERIC)
-* `current_amount` (NUMERIC)
-* `target_date` (DATE)
-
-### `smart_tips`
-* `id` (UUID, Primary Key)
-* `category` (TEXT)
-* `original_service` (TEXT)
-* `tip_text` (TEXT)
-* `potential_savings` (NUMERIC)
-* `link` (TEXT, optional)
+- ✅ **Transakcie** – príjmy a výdavky s kategóriou, sumou a dátumom.
+- ✅ **Stav platby** – `COMPLETED` (uhradené) vs `PLANNED` (očakávané) s dátumom splatnosti.
+- ✅ **Sekcia očakávaných výdavkov** – s prepínačom „len tento mesiac / všetky" a označením po splatnosti.
+- ✅ **Označenie „DONE"** – plánovaná platba sa jedným klikom presunie do reálnej bilancie.
+- ✅ **Opakované platby** (`isRecurring`) – týždenné / mesačné / ročné; po uhradení sa vytvorí ďalšia plánovaná.
+- ✅ **Mesačné rozpočty** – limit na kategóriu s ukazovateľom čerpania.
+- ✅ **Správa zmlúv a viazaností** – poskytovateľ, číslo zmluvy, koniec viazanosti.
+- ✅ **Tipy na úsporu** – porovnanie s referenčnou trhovou cenou podľa kľúčových slov.
+- ✅ **Vlastné kategórie** – pridávanie/mazanie vrátane farby.
+- ✅ **Súhrnné karty** – príjmy, výdavky, bilancia, očakávané výdavky.
 
 ---
 
-## 4. API Endpoints Specification
+## 3. Technológie
 
-### Authentication & Household
-* `POST /api/auth/register` - Create user and new household.
-* `POST /api/auth/invite` - Add family member/child account.
+**Používa sa dnes:**
+- Next.js 16 (App Router), React 19, TypeScript
+- Tailwind CSS 4
+- localStorage (ukladanie dát v prehliadači)
 
-### Finances & Cashflow
-* `GET /api/finances/recurring` - Fetch all fixed & irregular expenses.
-* `POST /api/finances/recurring` - Add/Update fixed expense or allowance.
-* `GET /api/finances/prediction?months=6` - Calculate projected cashflow & risk flags for upcoming months.
-
-### Gamification & Kids
-* `GET /api/kids/tasks?userId={id}` - Fetch active tasks and rewards.
-* `POST /api/kids/tasks` - Create task (Parent).
-* `PATCH /api/kids/tasks/:id` - Update status (Child marks complete / Parent approves).
-* `GET /api/goals` - Fetch family and personal savings goals.
+**Plánované pre backend fázu:**
+- Supabase (PostgreSQL + Row Level Security) pre databázu a prihlásenie
+- Vercel na nasadenie
+- Neskôr React Native / Expo pre mobilnú appku
 
 ---
 
-## 5. Development Roadmap (Phases)
+## 4. Dátový model
 
-### Phase 1: Database Setup & Core Auth
-1. Initialize Supabase project & execute SQL migrations for schema.
-2. Setup Next.js application with Tailwind CSS.
-3. Implement registration, login, and household creation logic.
+### 4.1 Dnešný model (v kóde, `src/types/index.ts`)
 
-### Phase 2: Recurring Expenses & Cashflow Engine (Web)
-1. Build UI for entering monthly subscriptions, fixed allowances, and annual bills.
-2. Develop backend logic for 1–12 month cashflow projections.
-3. Create visual dashboard highlighting deficit months and total fixed commitments.
+Tieto typy appka reálne používa:
 
-### Phase 3: Family Multi-User & Kids Mode
-1. Implement age-tailored UI views (simplified layout for ages 6-8, savings tracker for 9-15).
-2. Build task-assignment module with real-world goal milestones.
-3. Add manual Smart Tips / Deal suggestions widget.
+- **Transaction** – `id`, `amount`, `type` (INCOME/EXPENSE), `categoryId`,
+  `description`, `date`, `dueDate?`, `status` (COMPLETED/PLANNED),
+  `isRecurring?`, `recurrenceInterval?` (NONE/WEEKLY/MONTHLY/YEARLY),
+  `provider?`, `contractNumber?`, `contractEndDate?`, `note?`.
+- **Category** – `id`, `name`, `type`, `color?`, `icon?`.
+- **Budget** – `id`, `categoryId`, `limitAmount`.
+- **CategoryBenchmark** – `categoryId`, `averagePrice`, `recommendationNote?`, `keywords?`.
 
-### Phase 4: Mobile App Integration
-1. Initialize React Native / Expo application.
-2. Connect mobile screens to the existing API endpoints.
-3. Enable push notifications for bill reminders and task approvals.
+### 4.2 Cieľový databázový model (plán, Supabase/PostgreSQL)
+
+Keď sa pridá backend, tabuľky budú vychádzať z dnešných typov a rozšíria ich:
+
+- **households** – `id`, `name`, `created_at`.
+- **users** – `id`, `household_id`, `role` (parent/child), `display_name`, `age_group?`, `created_at`.
+- **transactions** – rozšírenie dnešného `Transaction` o `household_id` a `created_by`.
+- **budgets** – rozšírenie dnešného `Budget` o `household_id`.
+- **categories** – rozšírenie dnešného `Category` o `household_id`.
+- **kids_tasks** – `id`, `household_id`, `assigned_to`, `title`, `reward_amount`, `status`, `created_at`.
+- **financial_goals** – `id`, `household_id`, `user_id?`, `title`, `target_amount`, `current_amount`, `target_date`.
+- **smart_tips** – `id`, `category`, `original_service`, `tip_text`, `potential_savings`, `link?`.
+
+> Poznámka: dnešný kód pracuje s pojmom **Transaction**, nie so samostatnými
+> tabuľkami „recurring_expenses" atď. Pri prechode na databázu treba držať
+> jeden slovník — odporúčanie je stavať na existujúcom `Transaction`.
+
+---
+
+## 5. Roadmapa vývoja
+
+### Fáza 1 — ✅ Základné MVP v prehliadači (HOTOVÉ)
+1. ✅ Next.js + Tailwind projekt.
+2. ✅ Transakcie, kategórie, rozpočty, zmluvy, opakované a plánované platby.
+3. ✅ Ukladanie do localStorage.
+
+### Fáza 2 — Vylepšenie a stabilizácia MVP (PREBIEHA / ĎALEJ)
+1. ⬜ Rozdeliť veľký `page.tsx` na menšie komponenty (formulár, modál úpravy).
+2. ⬜ Nahradiť `confirm()`/`alert()` peknejšími dialógmi.
+3. ⬜ Jednoduchá vizualizácia cashflow (graf mesiacov, deficitné mesiace).
+4. ⬜ Export/import dát (napr. do súboru), aby sa dáta dali zálohovať.
+
+### Fáza 3 — Backend, prihlásenie a rodina (PLÁN)
+1. ⬜ Založiť Supabase projekt, vytvoriť tabuľky, zapnúť Row Level Security.
+2. ⬜ Registrácia, prihlásenie a vytvorenie „domácnosti".
+3. ⬜ Presun dát z localStorage do databázy.
+4. ⬜ Zdieľaný rozpočet medzi rodičmi.
+
+### Fáza 4 — Detský režim a gamifikácia (PLÁN)
+1. ⬜ Vek-primerané rozhranie (6–8 rokov, 9–15 rokov).
+2. ⬜ Úlohy s odmenami a reálnymi cieľmi (sporenie).
+3. ⬜ Rozšírené tipy a porovnania cien.
+
+### Fáza 5 — Mobilná appka (PLÁN)
+1. ⬜ React Native / Expo appka nad rovnakým API.
+2. ⬜ Push notifikácie na pripomienky platieb a schvaľovanie úloh.
+
+---
+
+## 6. Legenda
+
+- ✅ hotové
+- ⬜ plánované / ešte neurobené
+- *(plán)* funkcia z vízie, ktorá zatiaľ nie je implementovaná
